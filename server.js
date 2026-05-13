@@ -7,9 +7,16 @@ const qrcode = require('qrcode');
 const app = express();
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '50mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
 
-// Multi-session store
+// Serve static files - try public folder first, then current directory
+const publicPath = path.join(__dirname, 'public');
+const fs = require('fs');
+if (fs.existsSync(publicPath)) {
+  app.use(express.static(publicPath));
+} else {
+  app.use(express.static(__dirname));
+}
+
 const sessions = {};
 
 async function createSession(userId) {
@@ -37,7 +44,7 @@ async function createSession(userId) {
     sessions[userId].qr = null;
     sessions[userId].initializing = false;
     sessions[userId].phone = client.info?.wid?.user || '';
-    console.log(`[${userId}] WhatsApp connected: +${sessions[userId].phone}`);
+    console.log(`[${userId}] Connected: +${sessions[userId].phone}`);
   });
 
   client.on('disconnected', () => {
@@ -50,14 +57,17 @@ async function createSession(userId) {
   });
 
   try { await client.initialize(); }
-  catch(e) { sessions[userId].initializing = false; }
+  catch(e) { 
+    console.error(`Session error:`, e.message);
+    sessions[userId].initializing = false; 
+  }
 }
 
-// ===== ROUTES =====
-
+// ===== API ROUTES =====
 app.get('/status/:uid', (req, res) => {
   const s = sessions[req.params.uid];
-  res.json(s ? { ready: s.ready, qr: s.qr, phone: s.phone, initializing: s.initializing } : { ready: false, qr: null, phone: '', initializing: false });
+  res.json(s ? { ready: s.ready, qr: s.qr, phone: s.phone, initializing: s.initializing } 
+             : { ready: false, qr: null, phone: '', initializing: false });
 });
 
 app.get('/all-sessions', (req, res) => {
@@ -104,9 +114,17 @@ app.post('/send-media/:uid', async (req, res) => {
   } catch(e) { res.status(500).json({ success: false, error: e.message }); }
 });
 
-// Serve frontend for all other routes
+// Serve index.html for all other routes
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  const indexPath = fs.existsSync(publicPath) 
+    ? path.join(publicPath, 'index.html')
+    : path.join(__dirname, 'index.html');
+  
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.send('<h1>MANS SENDER Server Running!</h1><p>index.html not found</p>');
+  }
 });
 
 const PORT = process.env.PORT || 3001;
