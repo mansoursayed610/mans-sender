@@ -1,0 +1,1712 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MANS SENDER — نظام إرسال واتساب</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#25D366">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MANS SENDER">
+<meta name="mobile-web-app-capable" content="yes">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
+<!-- SheetJS for Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --green:#25D366;
+  --green2:#128C7E;
+  --green3:#075E54;
+  --dark:#0b0f0e;
+  --dark2:#111916;
+  --dark3:#172118;
+  --card:#1a2420;
+  --card2:#1f2e28;
+  --border:rgba(37,211,102,0.12);
+  --border2:rgba(37,211,102,0.25);
+  --text:#e8f5e8;
+  --text2:#9ab8a0;
+  --text3:#5a7a62;
+  --red:#ff4444;
+  --amber:#f59e0b;
+  --blue:#3b82f6;
+}
+body{font-family:'Cairo',sans-serif;background:var(--dark);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+/* ======= SCROLLBAR ======= */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:var(--dark2)}
+::-webkit-scrollbar-thumb{background:var(--green3);border-radius:10px}
+
+/* ======= SCREENS ======= */
+.screen{display:none;min-height:100vh}
+.screen.active{display:flex}
+
+/* ======= LOADING ======= */
+#loadingScreen{background:var(--dark);align-items:center;justify-content:center;flex-direction:column;gap:20px}
+.loader-logo{font-size:48px;font-weight:900;color:var(--green);letter-spacing:4px;animation:pulse 1.5s ease-in-out infinite}
+.loader-bar{width:200px;height:3px;background:rgba(37,211,102,0.15);border-radius:10px;overflow:hidden}
+.loader-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--green2));border-radius:10px;animation:load 2s ease forwards}
+@keyframes load{from{width:0}to{width:100%}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.6}}
+
+/* ======= LOGIN ======= */
+#loginScreen{
+  background:var(--dark);
+  align-items:center;justify-content:center;
+  position:relative;overflow:hidden
+}
+.login-bg{
+  position:absolute;inset:0;
+  background:radial-gradient(ellipse at 20% 50%,rgba(37,211,102,0.06) 0%,transparent 60%),
+             radial-gradient(ellipse at 80% 20%,rgba(18,140,126,0.05) 0%,transparent 50%);
+}
+.login-grid{
+  position:absolute;inset:0;
+  background-image:linear-gradient(rgba(37,211,102,0.04) 1px,transparent 1px),
+                   linear-gradient(90deg,rgba(37,211,102,0.04) 1px,transparent 1px);
+  background-size:40px 40px;
+}
+.login-box{
+  position:relative;z-index:2;
+  width:400px;
+  background:linear-gradient(145deg,rgba(26,36,32,0.95),rgba(17,25,22,0.98));
+  border:1px solid var(--border2);
+  border-radius:24px;
+  padding:40px;
+  backdrop-filter:blur(20px);
+  box-shadow:0 0 80px rgba(37,211,102,0.08),0 20px 60px rgba(0,0,0,0.5);
+}
+.login-logo{text-align:center;margin-bottom:32px}
+.login-logo-icon{
+  width:70px;height:70px;
+  background:linear-gradient(135deg,var(--green),var(--green2));
+  border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 14px;
+  font-size:28px;
+  box-shadow:0 0 30px rgba(37,211,102,0.3);
+}
+.login-title{font-size:26px;font-weight:900;color:var(--green);letter-spacing:2px}
+.login-sub{font-size:12px;color:var(--text3);margin-top:4px}
+.role-switch{display:flex;background:rgba(0,0,0,0.3);border-radius:12px;padding:4px;margin-bottom:24px;gap:4px}
+.role-btn{flex:1;padding:9px;border:none;border-radius:9px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all 0.25s;background:transparent;color:var(--text3)}
+.role-btn.active{background:linear-gradient(135deg,var(--green),var(--green2));color:#000}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:12px;color:var(--text3);margin-bottom:7px;font-weight:500}
+.field input{
+  width:100%;padding:12px 16px;
+  background:rgba(255,255,255,0.04);
+  border:1px solid var(--border);
+  border-radius:12px;
+  color:var(--text);
+  font-family:'Cairo',sans-serif;font-size:14px;
+  outline:none;transition:all 0.2s;
+}
+.field input:focus{border-color:var(--green);background:rgba(37,211,102,0.04);box-shadow:0 0 0 3px rgba(37,211,102,0.08)}
+.btn-primary{
+  width:100%;padding:13px;
+  background:linear-gradient(135deg,var(--green),var(--green2));
+  border:none;border-radius:12px;
+  color:#000;font-family:'Cairo',sans-serif;font-size:15px;font-weight:700;
+  cursor:pointer;transition:all 0.2s;
+  box-shadow:0 4px 20px rgba(37,211,102,0.25);
+}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 25px rgba(37,211,102,0.35)}
+.btn-primary:active{transform:translateY(0)}
+.btn-primary:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+.login-error{color:var(--red);font-size:12px;text-align:center;margin-top:12px;display:none;padding:8px;background:rgba(255,68,68,0.08);border-radius:8px;border:1px solid rgba(255,68,68,0.15)}
+
+/* ======= MAIN APP ======= */
+#appScreen{display:none;flex-direction:row}
+#appScreen.active{display:flex}
+.sidebar{
+  width:230px;flex-shrink:0;
+  background:var(--dark2);
+  border-left:1px solid var(--border);
+  display:flex;flex-direction:column;
+  height:100vh;position:sticky;top:0;
+}
+.sidebar-logo{
+  padding:24px 20px 16px;
+  border-bottom:1px solid var(--border);
+}
+.sidebar-logo-text{font-size:18px;font-weight:900;color:var(--green);letter-spacing:2px}
+.sidebar-logo-sub{font-size:10px;color:var(--text3);margin-top:2px}
+.sidebar-user{
+  padding:14px 20px;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:10px;
+}
+.user-avatar{
+  width:36px;height:36px;border-radius:50%;
+  background:linear-gradient(135deg,var(--green3),var(--green2));
+  display:flex;align-items:center;justify-content:center;
+  font-size:14px;font-weight:700;color:#fff;flex-shrink:0;
+}
+.user-name{font-size:13px;font-weight:600;color:var(--text)}
+.user-role{font-size:10px;color:var(--text3)}
+.nav{flex:1;padding:12px 0;overflow-y:auto}
+.nav-section{font-size:10px;color:var(--text3);font-weight:600;letter-spacing:1px;padding:12px 20px 6px;text-transform:uppercase}
+.nav-item{
+  display:flex;align-items:center;gap:12px;
+  padding:11px 20px;cursor:pointer;
+  font-size:13px;color:var(--text2);
+  transition:all 0.2s;
+  border-right:3px solid transparent;
+  position:relative;
+}
+.nav-item:hover{color:var(--text);background:rgba(37,211,102,0.05)}
+.nav-item.active{color:var(--green);background:rgba(37,211,102,0.08);border-right:3px solid var(--green)}
+.nav-icon{font-size:16px;width:20px;text-align:center}
+.nav-badge{
+  margin-right:auto;background:var(--green);
+  color:#000;font-size:10px;font-weight:700;
+  padding:2px 7px;border-radius:20px;
+}
+.sidebar-bottom{padding:16px 20px;border-top:1px solid var(--border)}
+.btn-logout{
+  width:100%;padding:9px;
+  background:rgba(255,68,68,0.08);
+  border:1px solid rgba(255,68,68,0.15);
+  border-radius:10px;color:var(--red);
+  font-family:'Cairo',sans-serif;font-size:13px;
+  cursor:pointer;transition:all 0.2s;
+}
+.btn-logout:hover{background:rgba(255,68,68,0.15)}
+
+/* ======= MAIN CONTENT ======= */
+.main{flex:1;display:flex;flex-direction:column;height:100vh;overflow-y:auto}
+.topbar{
+  padding:16px 28px;
+  background:rgba(11,15,14,0.8);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:100;
+}
+.topbar-title{font-size:20px;font-weight:700;color:var(--text)}
+.topbar-actions{display:flex;align-items:center;gap:12px}
+.badge-online{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--green)}
+.dot-online{width:7px;height:7px;border-radius:50%;background:var(--green);animation:blink 2s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+.content{padding:28px;flex:1}
+
+/* ======= PAGES ======= */
+.page{display:none}
+.page.active{display:block;animation:fadeIn 0.3s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* ======= CARDS ======= */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:16px;padding:20px;
+  position:relative;overflow:hidden;
+}
+.stat-card::before{
+  content:'';position:absolute;top:-30px;left:-30px;
+  width:80px;height:80px;border-radius:50%;
+  background:rgba(37,211,102,0.06);
+}
+.stat-num{font-size:28px;font-weight:800;color:var(--green);line-height:1}
+.stat-label{font-size:12px;color:var(--text3);margin-top:6px}
+.stat-icon{position:absolute;top:16px;left:16px;font-size:22px;opacity:0.5}
+.stat-change{font-size:11px;color:var(--text3);margin-top:8px;display:flex;align-items:center;gap:4px}
+.up{color:#4ade80}.down{color:var(--red)}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:20px}
+.card-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+
+/* ======= FORM ======= */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:12px;color:var(--text3);margin-bottom:6px;font-weight:500}
+.form-group input,.form-group select,.form-group textarea{
+  width:100%;padding:10px 14px;
+  background:rgba(255,255,255,0.04);
+  border:1px solid var(--border);
+  border-radius:10px;color:var(--text);
+  font-family:'Cairo',sans-serif;font-size:13px;
+  outline:none;transition:all 0.2s;
+}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{
+  border-color:var(--green);background:rgba(37,211,102,0.03)
+}
+.form-group select option{background:var(--card2);color:var(--text)}
+.form-group textarea{resize:vertical;min-height:90px;line-height:1.6}
+
+/* ======= UPLOAD ZONE ======= */
+.upload-zone{
+  border:2px dashed rgba(37,211,102,0.25);
+  border-radius:14px;padding:30px;text-align:center;
+  cursor:pointer;color:var(--text3);font-size:13px;
+  transition:all 0.2s;margin-bottom:16px;
+}
+.upload-zone:hover,.upload-zone.dragover{
+  border-color:var(--green);color:var(--green);
+  background:rgba(37,211,102,0.04);
+}
+.upload-icon{font-size:36px;margin-bottom:10px}
+.upload-hint{font-size:11px;opacity:0.6;margin-top:4px}
+
+/* ======= BUTTONS ======= */
+.btn{
+  padding:9px 18px;border:none;border-radius:10px;
+  font-family:'Cairo',sans-serif;font-size:13px;font-weight:600;
+  cursor:pointer;transition:all 0.2s;display:inline-flex;align-items:center;gap:7px;
+}
+.btn-green{background:linear-gradient(135deg,var(--green),var(--green2));color:#000;box-shadow:0 2px 12px rgba(37,211,102,0.2)}
+.btn-green:hover{transform:translateY(-1px);box-shadow:0 4px 16px rgba(37,211,102,0.3)}
+.btn-outline{background:transparent;border:1px solid var(--border2);color:var(--green)}
+.btn-outline:hover{background:rgba(37,211,102,0.08)}
+.btn-red{background:rgba(255,68,68,0.1);border:1px solid rgba(255,68,68,0.2);color:var(--red)}
+.btn-red:hover{background:rgba(255,68,68,0.18)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-full{width:100%;justify-content:center;padding:13px}
+.btn-lg{padding:13px 24px;font-size:15px}
+
+/* ======= TABLE ======= */
+.table-wrap{overflow-x:auto;border-radius:12px;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse}
+th{text-align:right;padding:12px 16px;font-size:11px;color:var(--text3);font-weight:600;background:rgba(0,0,0,0.2);border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:12px 16px;font-size:13px;border-bottom:1px solid rgba(37,211,102,0.04)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(37,211,102,0.03)}
+
+/* ======= BADGES ======= */
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-green{background:rgba(37,211,102,0.12);color:var(--green)}
+.badge-red{background:rgba(255,68,68,0.12);color:var(--red)}
+.badge-amber{background:rgba(245,158,11,0.12);color:var(--amber)}
+.badge-blue{background:rgba(59,130,246,0.12);color:var(--blue)}
+.badge-owner{background:linear-gradient(135deg,rgba(37,211,102,0.2),rgba(18,140,126,0.2));color:var(--green);border:1px solid rgba(37,211,102,0.25)}
+
+/* ======= PROGRESS ======= */
+.progress-wrap{background:rgba(0,0,0,0.3);border-radius:20px;height:10px;overflow:hidden;margin:12px 0}
+.progress-bar{height:100%;background:linear-gradient(90deg,var(--green),var(--green2));border-radius:20px;transition:width 0.4s ease;width:0%}
+.progress-info{display:flex;justify-content:space-between;font-size:12px;color:var(--text3);margin-bottom:4px}
+
+/* ======= MEDIA PREVIEW ======= */
+.media-preview{
+  display:flex;align-items:center;gap:12px;
+  padding:10px 14px;
+  background:rgba(37,211,102,0.06);
+  border:1px solid var(--border2);
+  border-radius:10px;margin-bottom:12px;
+}
+.media-preview-name{font-size:13px;color:var(--green);flex:1}
+.media-preview-remove{cursor:pointer;color:var(--text3);font-size:18px;line-height:1;transition:color 0.2s}
+.media-preview-remove:hover{color:var(--red)}
+
+/* ======= CONTACTS CHIPS ======= */
+.contacts-info{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 14px;
+  background:rgba(59,130,246,0.06);
+  border:1px solid rgba(59,130,246,0.15);
+  border-radius:10px;margin-bottom:12px;
+  font-size:13px;color:var(--blue);
+}
+
+/* ======= LOG ITEMS ======= */
+.log-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px}
+.log-item:last-child{border-bottom:none}
+.log-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.log-name{flex:1}
+.log-time{font-size:11px;color:var(--text3)}
+
+/* ======= MODAL ======= */
+.modal-overlay{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);
+  z-index:1000;display:none;align-items:center;justify-content:center;
+}
+.modal-overlay.open{display:flex}
+.modal{
+  background:var(--card2);border:1px solid var(--border2);
+  border-radius:20px;padding:28px;width:460px;max-width:95vw;
+  max-height:90vh;overflow-y:auto;
+  animation:slideUp 0.25s ease;
+}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-title{font-size:17px;font-weight:700;margin-bottom:20px;color:var(--text);display:flex;align-items:center;justify-content:space-between}
+.modal-close{cursor:pointer;color:var(--text3);font-size:22px;line-height:1;transition:color 0.2s}
+.modal-close:hover{color:var(--red)}
+
+/* ======= ALERT ======= */
+.alert{padding:12px 16px;border-radius:10px;font-size:13px;margin-bottom:16px;display:none;align-items:center;gap:10px}
+.alert.show{display:flex}
+.alert-success{background:rgba(37,211,102,0.1);border:1px solid rgba(37,211,102,0.2);color:var(--green)}
+.alert-error{background:rgba(255,68,68,0.1);border:1px solid rgba(255,68,68,0.2);color:var(--red)}
+.alert-info{background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);color:var(--blue)}
+
+/* ======= EMPTY STATE ======= */
+.empty{text-align:center;padding:48px 20px;color:var(--text3)}
+.empty-icon{font-size:40px;margin-bottom:12px;opacity:0.5}
+.empty-text{font-size:14px}
+
+/* ======= FIREBASE CONFIG SCREEN ======= */
+#configScreen{
+  background:var(--dark);align-items:center;justify-content:center;
+  flex-direction:column;gap:0;
+}
+.config-box{
+  background:var(--card);border:1px solid var(--border2);
+  border-radius:20px;padding:32px;width:500px;max-width:95vw;
+}
+.config-title{font-size:20px;font-weight:800;color:var(--green);margin-bottom:8px}
+.config-sub{font-size:13px;color:var(--text3);margin-bottom:24px;line-height:1.7}
+.config-step{
+  background:rgba(0,0,0,0.25);border-radius:10px;
+  padding:12px 14px;margin-bottom:12px;font-size:12px;color:var(--text2);
+  border-right:3px solid var(--green);
+}
+.config-step strong{color:var(--green);display:block;margin-bottom:4px}
+
+/* ======= WHATSAPP CONNECT ======= */
+.wa-status{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--card2);border-radius:12px;margin-bottom:16px;border:1px solid var(--border)}
+.wa-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.wa-connected{background:var(--green);box-shadow:0 0 8px rgba(37,211,102,0.5)}
+.wa-disconnected{background:var(--red)}
+.qr-box{text-align:center;padding:24px;background:rgba(255,255,255,0.98);border-radius:16px;margin-bottom:16px;display:none}
+
+/* ======= TOAST ======= */
+#toast{
+  position:fixed;bottom:24px;right:24px;z-index:9999;
+  background:var(--card2);border:1px solid var(--border2);
+  border-radius:12px;padding:14px 18px;
+  font-size:13px;color:var(--text);
+  transform:translateY(100px);opacity:0;
+  transition:all 0.3s ease;
+  max-width:320px;
+  display:flex;align-items:center;gap:10px;
+}
+#toast.show{transform:translateY(0);opacity:1}
+#toast.success{border-color:rgba(37,211,102,0.3);background:rgba(26,36,32,0.98)}
+#toast.error{border-color:rgba(255,68,68,0.3)}
+
+/* ======= RESPONSIVE ======= */
+@media(max-width:768px){
+  .sidebar{display:none}
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .form-grid{grid-template-columns:1fr}
+  .content{padding:16px}
+}
+</style>
+</head>
+<body>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- LOADING -->
+<div id="loadingScreen" class="screen active">
+  <div class="loader-logo">MANS SENDER</div>
+  <div class="loader-bar"><div class="loader-fill"></div></div>
+  <p style="color:var(--text3);font-size:13px;margin-top:16px">جاري التحميل...</p>
+</div>
+
+<!-- FIREBASE CONFIG (shows if not configured) -->
+<div id="configScreen" class="screen">
+  <div style="text-align:center;margin-bottom:24px">
+    <div style="font-size:40px">⚙️</div>
+    <div style="font-size:22px;font-weight:900;color:var(--green);margin-top:8px">إعداد Firebase</div>
+  </div>
+  <div class="config-box">
+    <div class="config-title">الخطوات الأولى</div>
+    <div class="config-sub">افتح الملف وابحث عن قسم <strong style="color:var(--green)">FIREBASE CONFIG</strong> وضع بياناتك:</div>
+    <div class="config-step">
+      <strong>1. إنشاء مشروع Firebase</strong>
+      روح على console.firebase.google.com وأنشئ مشروع جديد
+    </div>
+    <div class="config-step">
+      <strong>2. تفعيل Authentication</strong>
+      فعّل Email/Password من Authentication > Sign-in method
+    </div>
+    <div class="config-step">
+      <strong>3. إنشاء Firestore Database</strong>
+      أنشئ قاعدة بيانات في Cloud Firestore
+    </div>
+    <div class="config-step">
+      <strong>4. نسخ بيانات المشروع</strong>
+      من Project Settings > Your apps > نسخ firebaseConfig
+    </div>
+    <div class="config-step">
+      <strong>5. ضع بياناتك في الكود</strong>
+      ابحث عن YOUR_API_KEY وغيّر كل القيم ببياناتك الحقيقية
+    </div>
+    <button class="btn btn-green btn-full" onclick="location.reload()">✓ جاهز، إعادة تحميل</button>
+  </div>
+</div>
+
+<!-- LOGIN -->
+<div id="loginScreen" class="screen">
+  <div class="login-bg"></div>
+  <div class="login-grid"></div>
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="login-logo-icon">📱</div>
+      <div class="login-title">MANS SENDER</div>
+      <div class="login-sub">نظام إرسال حملات واتساب الاحترافي</div>
+    </div>
+    <div class="role-switch">
+      <button class="role-btn active" id="roleOwnerBtn" onclick="setLoginRole('owner')">👑 المالك</button>
+      <button class="role-btn" id="roleClientBtn" onclick="setLoginRole('client')">👤 المشترك</button>
+    </div>
+    <div class="field">
+      <label>البريد الإلكتروني</label>
+      <input type="email" id="loginEmail" placeholder="example@mail.com" autocomplete="username">
+    </div>
+    <div class="field">
+      <label>كلمة المرور</label>
+      <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn-primary" id="loginBtn" onclick="doLogin()">دخول</button>
+    <div class="login-error" id="loginError"></div>
+    <p style="text-align:center;font-size:11px;color:var(--text3);margin-top:16px">MANS SENDER v2.0 • جميع الحقوق محفوظة</p>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="appScreen" class="screen">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-text">📱 MANS SENDER</div>
+      <div class="sidebar-logo-sub">WhatsApp Campaign System</div>
+    </div>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="sidebarAvatar">M</div>
+      <div>
+        <div class="user-name" id="sidebarName">المستخدم</div>
+        <div class="user-role" id="sidebarRole">عضو</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <div class="nav-section">الرئيسية</div>
+      <div class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard">
+        <span class="nav-icon">📊</span><span>لوحة التحكم</span>
+      </div>
+      <div class="nav-item" onclick="showPage('send')" id="nav-send">
+        <span class="nav-icon">📤</span><span>إرسال حملة</span>
+      </div>
+      <div class="nav-item" onclick="showPage('contacts')" id="nav-contacts">
+        <span class="nav-icon">👥</span><span>جهات الاتصال</span>
+      </div>
+      <div class="nav-item" onclick="showPage('logs')" id="nav-logs">
+        <span class="nav-icon">📋</span><span>سجل الإرسال</span>
+      </div>
+      <div class="nav-section owner-nav" style="display:none">إدارة النظام</div>
+      <div class="nav-item owner-nav" onclick="showPage('users')" id="nav-users" style="display:none">
+        <span class="nav-icon">🛡️</span><span>المستخدمون</span>
+        <span class="nav-badge" id="usersBadge">0</span>
+      </div>
+      <div class="nav-item owner-nav" onclick="showPage('allcampaigns')" id="nav-allcampaigns" style="display:none">
+        <span class="nav-icon">🌐</span><span>كل الحملات</span>
+      </div>
+      <div class="nav-section">الإعدادات</div>
+      <div class="nav-item" onclick="showPage('settings')" id="nav-settings">
+        <span class="nav-icon">⚙️</span><span>الإعدادات</span>
+      </div>
+    </nav>
+    <div class="sidebar-bottom">
+      <button class="btn-logout" onclick="doLogout()">🚪 تسجيل الخروج</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="pageTitle">لوحة التحكم</div>
+      <div class="topbar-actions">
+        <div class="badge-online">
+          <div class="dot-online"></div>
+          <span id="waStatus">واتساب متصل</span>
+        </div>
+      </div>
+    </div>
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div class="page active" id="page-dashboard">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon">📤</div>
+            <div class="stat-num" id="ds-sent">0</div>
+            <div class="stat-label">رسائل أُرسلت</div>
+            <div class="stat-change up" id="ds-sent-ch">— اليوم</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">✅</div>
+            <div class="stat-num" id="ds-success">0%</div>
+            <div class="stat-label">نسبة النجاح</div>
+            <div class="stat-change" id="ds-success-ch">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">📊</div>
+            <div class="stat-num" id="ds-campaigns">0</div>
+            <div class="stat-label">عدد الحملات</div>
+            <div class="stat-change" id="ds-camp-ch">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon">👥</div>
+            <div class="stat-num" id="ds-contacts">0</div>
+            <div class="stat-label">جهات الاتصال</div>
+            <div class="stat-change">آخر رفع</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">⚡ آخر نشاط</div>
+          <div id="dash-logs">
+            <div class="empty"><div class="empty-icon">📭</div><div class="empty-text">لا يوجد نشاط بعد</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SEND CAMPAIGN -->
+      <div class="page" id="page-send">
+        <div style="display:grid;grid-template-columns:1fr 380px;gap:20px">
+          <div>
+            <div class="card">
+              <div class="card-title">📋 رفع قائمة العملاء</div>
+              <div class="upload-zone" id="excelZone" onclick="document.getElementById('excelFile').click()"
+                   ondragover="event.preventDefault();this.classList.add('dragover')"
+                   ondragleave="this.classList.remove('dragover')"
+                   ondrop="handleExcelDrop(event)">
+                <div class="upload-icon">📊</div>
+                <div>اسحب ملف Excel هنا أو اضغط للرفع</div>
+                <div class="upload-hint">يدعم .xlsx و .xls و .csv • الأرقام لا تُحفظ في قاعدة البيانات</div>
+              </div>
+              <input type="file" id="excelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="loadExcel(this)">
+              <div id="contactsInfo" style="display:none"></div>
+            </div>
+            <div class="card">
+              <div class="card-title">✍️ محتوى الرسالة</div>
+              <div class="form-group">
+                <label>اسم الحملة</label>
+                <input type="text" id="campName" placeholder="مثال: حملة عيد الفطر 2025">
+              </div>
+              <div class="form-group">
+                <label>نص الرسالة <span style="color:var(--text3);font-size:11px">(يمكن استخدام {name} {phone} {company})</span></label>
+                <textarea id="msgText" placeholder="اكتب رسالتك هنا...&#10;&#10;مثال: مرحباً {name}، لدينا عرض خاص لك! 🎉"></textarea>
+              </div>
+              <div class="form-group">
+                <label>إرفاق ملف (صورة / فيديو / مستند)</label>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <button class="btn btn-outline btn-sm" onclick="triggerMedia('image/*')">🖼️ صورة</button>
+                  <button class="btn btn-outline btn-sm" onclick="triggerMedia('video/*')">🎥 فيديو</button>
+                  <button class="btn btn-outline btn-sm" onclick="triggerMedia('application/pdf')">📄 PDF</button>
+                  <button class="btn btn-outline btn-sm" onclick="triggerMedia('*')">📎 أي ملف</button>
+                </div>
+                <input type="file" id="mediaFile" style="display:none" onchange="loadMedia(this)">
+              </div>
+              <div id="mediaPreview" class="media-preview" style="display:none">
+                <span>📎</span>
+                <span class="media-preview-name" id="mediaName">—</span>
+                <span class="media-preview-remove" onclick="removeMedia()">✕</span>
+              </div>
+              <div class="alert alert-success" id="sendAlert"></div>
+              <div class="alert alert-error" id="sendErrorAlert"></div>
+            </div>
+          </div>
+          <div>
+            <div class="card" style="position:sticky;top:80px">
+              <div class="card-title">🚀 إعدادات الإرسال</div>
+              <div class="form-group">
+                <label>تأخير بين كل رسالة (ثانية)</label>
+                <input type="number" id="sendDelay" value="3" min="1" max="60">
+              </div>
+              <div class="form-group">
+                <label>وقت بدء الإرسال</label>
+                <select id="sendTime">
+                  <option value="now">الآن فوراً</option>
+                  <option value="schedule">جدولة لوقت محدد</option>
+                </select>
+              </div>
+              <div id="sendProgress" style="display:none">
+                <div class="progress-info">
+                  <span id="prog-label">جاري الإرسال...</span>
+                  <span id="prog-pct">0%</span>
+                </div>
+                <div class="progress-wrap"><div class="progress-bar" id="prog-bar"></div></div>
+                <div style="font-size:12px;color:var(--text3);text-align:center" id="prog-detail">0 / 0</div>
+              </div>
+              <button class="btn btn-green btn-full btn-lg" id="sendBtn" onclick="startCampaign()" style="margin-top:8px">
+                🚀 إرسال الحملة
+              </button>
+              <div style="margin-top:12px;padding:12px;background:rgba(0,0,0,0.2);border-radius:10px;font-size:11px;color:var(--text3);line-height:1.8">
+                <div>⚡ <strong style="color:var(--text2)">الأرقام لا تُحفظ</strong> — بتُقرأ من Excel مباشرة</div>
+                <div>🔒 <strong style="color:var(--text2)">عزل تام</strong> — كل مستخدم يشوف بياناته بس</div>
+                <div>📊 <strong style="color:var(--text2)">سجل كامل</strong> — كل رسالة مسجلة</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONTACTS -->
+      <div class="page" id="page-contacts">
+        <div class="card">
+          <div class="card-title">
+            📋 جهات الاتصال المحملة
+            <button class="btn btn-green btn-sm" style="margin-right:auto" onclick="document.getElementById('excelFile2').click()">+ رفع Excel</button>
+          </div>
+          <input type="file" id="excelFile2" accept=".xlsx,.xls,.csv" style="display:none" onchange="loadExcelContacts(this)">
+          <div id="contactsTable">
+            <div class="empty"><div class="empty-icon">👥</div><div class="empty-text">ارفع ملف Excel لعرض جهات الاتصال</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- LOGS -->
+      <div class="page" id="page-logs">
+        <div class="card">
+          <div class="card-title">
+            📋 سجل الإرسال الكامل
+            <button class="btn btn-outline btn-sm" style="margin-right:auto" onclick="loadLogs()">🔄 تحديث</button>
+          </div>
+          <div id="logsTable">
+            <div class="empty"><div class="empty-icon">📭</div><div class="empty-text">لا يوجد سجلات بعد</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- USERS (Owner only) -->
+      <div class="page" id="page-users">
+        <div class="card">
+          <div class="card-title">
+            👥 إدارة المستخدمين
+            <button class="btn btn-green btn-sm" style="margin-right:auto" onclick="openAddUser()">+ إضافة مستخدم</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>
+                <th>الاسم</th><th>البريد الإلكتروني</th><th>الدور</th>
+                <th>تاريخ الانتهاء</th><th>الحالة</th><th>رسائل أُرسلت</th><th>إجراءات</th>
+              </tr></thead>
+              <tbody id="usersTableBody">
+                <tr><td colspan="7"><div class="empty"><div class="empty-icon">⏳</div><div class="empty-text">جاري التحميل...</div></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ALL CAMPAIGNS (Owner) -->
+      <div class="page" id="page-allcampaigns">
+        <div class="card">
+          <div class="card-title">
+            🌐 كل الحملات (نظرة المالك)
+            <button class="btn btn-outline btn-sm" style="margin-right:auto" onclick="loadAllCampaigns()">🔄 تحديث</button>
+          </div>
+          <div id="allCampaignsTable">
+            <div class="empty"><div class="empty-icon">📊</div><div class="empty-text">جاري التحميل...</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="page" id="page-settings">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+          <div class="card">
+            <div class="card-title">📱 ربط واتساب</div>
+            <div class="wa-status" id="waStatusBar">
+              <div class="wa-dot wa-disconnected" id="waStatusDot"></div>
+              <div>
+                <div style="font-size:13px;font-weight:600" id="waStatusText">غير متصل</div>
+                <div style="font-size:11px;color:var(--text3)">امسح QR Code للاتصال</div>
+              </div>
+              <button class="btn btn-outline btn-sm" style="margin-right:auto" id="waConnectBtn" onclick="connectWA()">🔗 اتصال</button>
+              <button class="btn btn-red btn-sm" id="waDisconnectBtn" style="display:none" onclick="disconnectWA()">قطع</button>
+            </div>
+            <div id="qrContainer" style="display:none;text-align:center;padding:20px;background:white;border-radius:12px;margin:12px 0">
+              <p style="color:#333;font-size:13px;margin-bottom:12px;font-weight:600">افتح واتساب على تليفونك ← المزيد ← الأجهزة المرتبطة ← ربط جهاز</p>
+              <img id="qrImage" style="width:220px;height:220px;border-radius:8px" src="" alt="QR Code">
+              <p style="color:#888;font-size:11px;margin-top:10px">امسح الكود بكاميرا واتساب</p>
+            </div>
+            <div id="waConnectedInfo" style="display:none;text-align:center;padding:16px;background:rgba(37,211,102,0.08);border-radius:12px;border:1px solid rgba(37,211,102,0.2)">
+              <div style="font-size:28px">✅</div>
+              <div style="font-size:14px;font-weight:700;color:var(--green);margin-top:8px">واتساب متصل بنجاح!</div>
+              <div style="font-size:12px;color:var(--text3);margin-top:4px">جاهز لإرسال الحملات</div>
+            </div>
+            <div class="form-group" style="margin-top:12px">
+              <label>تأخير بين الرسائل (ثانية)</label>
+              <input type="number" id="set-delay" value="3" min="1" max="60">
+            </div>
+            <button class="btn btn-green" onclick="saveSettings()">💾 حفظ</button>
+          </div>
+          <div class="card">
+            <div class="card-title">👤 بيانات الحساب</div>
+            <div class="form-group">
+              <label>الاسم</label>
+              <input type="text" id="set-name" placeholder="اسمك">
+            </div>
+            <div class="form-group">
+              <label>البريد الإلكتروني</label>
+              <input type="email" id="set-email" disabled style="opacity:0.5">
+            </div>
+            <div class="form-group">
+              <label>كلمة المرور الجديدة (اتركه فارغاً للإبقاء)</label>
+              <input type="password" id="set-newpass" placeholder="كلمة المرور الجديدة">
+            </div>
+            <button class="btn btn-green" onclick="updateProfile()">💾 تحديث الملف الشخصي</button>
+          </div>
+        </div>
+        <div class="card owner-nav" style="display:none">
+          <div class="card-title">🔧 إعدادات النظام (المالك فقط)</div>
+          <div class="form-group">
+            <label>اسم النظام</label>
+            <input type="text" id="set-sysname" value="MANS SENDER" placeholder="اسم النظام">
+          </div>
+          <div class="form-group">
+            <label>الحد الأقصى لرسائل المستخدم العادي يومياً</label>
+            <input type="number" id="set-maxmsg" value="1000" min="100">
+          </div>
+          <button class="btn btn-green" onclick="saveSystemSettings()">💾 حفظ إعدادات النظام</button>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- ADD USER MODAL -->
+<div class="modal-overlay" id="addUserModal">
+  <div class="modal">
+    <div class="modal-title">
+      إضافة مستخدم جديد
+      <span class="modal-close" onclick="closeModal('addUserModal')">✕</span>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>الاسم</label>
+        <input type="text" id="nu-name" placeholder="الاسم الكامل">
+      </div>
+      <div class="form-group">
+        <label>البريد الإلكتروني</label>
+        <input type="email" id="nu-email" placeholder="email@example.com">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>كلمة المرور</label>
+      <input type="password" id="nu-pass" placeholder="كلمة سر قوية (8+ أحرف)">
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>تاريخ انتهاء الاشتراك</label>
+        <input type="date" id="nu-expiry">
+      </div>
+      <div class="form-group">
+        <label>الحد الأقصى للرسائل</label>
+        <input type="number" id="nu-maxmsg" value="1000" min="100">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>ملاحظات</label>
+      <input type="text" id="nu-notes" placeholder="ملاحظات اختيارية">
+    </div>
+    <div class="alert alert-error" id="addUserError"></div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-green" style="flex:1;justify-content:center" onclick="createUser()">✓ إنشاء المستخدم</button>
+      <button class="btn btn-outline" onclick="closeModal('addUserModal')">إلغاء</button>
+    </div>
+  </div>
+</div>
+
+<!-- USER DETAILS MODAL -->
+<div class="modal-overlay" id="userDetailsModal">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="udm-title">تفاصيل المستخدم</span>
+      <span class="modal-close" onclick="closeModal('userDetailsModal')">✕</span>
+    </div>
+    <div id="udm-content"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// ⚠️  FIREBASE CONFIG — غيّر هذه القيم ببيانات مشروعك
+// ============================================================
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDLnyvLxyxr2pxGTKsmAXMO4aadjJJyzpA",
+  authDomain: "mans-sender.firebaseapp.com",
+  projectId: "mans-sender",
+  storageBucket: "mans-sender.firebasestorage.app",
+  messagingSenderId: "574132889428",
+  appId: "1:574132889428:web:8eb48c4cff51797920cac1",
+  measurementId: "G-RXP1ZBHP7G"
+};
+// ============================================================
+// ⚠️  بريد المالك — غيّره لبريدك الحقيقي
+// ============================================================
+const OWNER_EMAIL = "owner@manssender.com";
+// ============================================================
+
+// ======= STATE =======
+let currentUser = null;
+let currentUserData = null;
+let contacts = [];
+let mediaFileObj = null;
+let sendingInterval = null;
+let db, auth, storage;
+
+// ======= INIT =======
+window.addEventListener('load', async () => {
+  // Check if Firebase configured
+  if (FIREBASE_CONFIG.apiKey === "YOUR_API_KEY") {
+    showScreen('configScreen');
+    return;
+  }
+
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    db = firebase.firestore();
+    auth = firebase.auth();
+    storage = firebase.storage();
+
+    auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        currentUser = user;
+        await loadUserData(user.uid);
+        showScreen('appScreen');
+        initApp();
+      } else {
+        showScreen('loginScreen');
+      }
+    });
+
+    setTimeout(() => {
+      if (document.getElementById('loadingScreen').classList.contains('active')) {
+        showScreen('loginScreen');
+      }
+    }, 3000);
+
+  } catch (e) {
+    console.error(e);
+    showScreen('loginScreen');
+  }
+});
+
+// ======= SCREENS =======
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ======= LOGIN =======
+let loginRole = 'owner';
+function setLoginRole(r) {
+  loginRole = r;
+  document.getElementById('roleOwnerBtn').classList.toggle('active', r === 'owner');
+  document.getElementById('roleClientBtn').classList.toggle('active', r === 'client');
+}
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass = document.getElementById('loginPass').value;
+  const btn = document.getElementById('loginBtn');
+  const err = document.getElementById('loginError');
+  err.style.display = 'none';
+
+  if (!email || !pass) { showLoginError('أدخل البريد الإلكتروني وكلمة المرور'); return; }
+
+  btn.disabled = true;
+  btn.textContent = 'جاري الدخول...';
+
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+  } catch (e) {
+    let msg = 'بيانات الدخول غير صحيحة';
+    if (e.code === 'auth/user-not-found') msg = 'البريد الإلكتروني غير مسجل';
+    if (e.code === 'auth/wrong-password') msg = 'كلمة المرور غلط';
+    if (e.code === 'auth/too-many-requests') msg = 'كثير محاولات، انتظر شوية';
+    showLoginError(msg);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'دخول';
+  }
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('loginError');
+  el.textContent = '⚠️ ' + msg;
+  el.style.display = 'block';
+}
+
+async function doLogout() {
+  await auth.signOut();
+  currentUser = null;
+  currentUserData = null;
+  contacts = [];
+  showScreen('loginScreen');
+}
+
+// ======= LOAD USER DATA =======
+async function loadUserData(uid) {
+  try {
+    const doc = await db.collection('users').doc(uid).get();
+    if (doc.exists) {
+      currentUserData = { id: uid, ...doc.data() };
+    } else {
+      // First time owner
+      const isOwner = currentUser.email === OWNER_EMAIL;
+      currentUserData = {
+        id: uid,
+        name: isOwner ? 'المالك' : currentUser.displayName || 'مستخدم',
+        email: currentUser.email,
+        role: isOwner ? 'owner' : 'client',
+        sentCount: 0,
+        maxMessages: isOwner ? 999999 : 1000,
+        expiry: isOwner ? '2099-12-31' : '',
+        createdAt: new Date().toISOString()
+      };
+      await db.collection('users').doc(uid).set(currentUserData);
+    }
+  } catch (e) {
+    console.error('loadUserData error', e);
+    currentUserData = { role: 'client', name: 'مستخدم', email: currentUser?.email };
+  }
+}
+
+// ======= INIT APP =======
+function initApp() {
+  const isOwner = currentUserData?.role === 'owner';
+
+  // Sidebar
+  document.getElementById('sidebarAvatar').textContent = (currentUserData?.name || 'M')[0].toUpperCase();
+  document.getElementById('sidebarName').textContent = currentUserData?.name || 'مستخدم';
+  document.getElementById('sidebarRole').textContent = isOwner ? '👑 المالك' : '👤 مشترك';
+
+  // Owner-only elements
+  document.querySelectorAll('.owner-nav').forEach(el => {
+    el.style.display = isOwner ? (el.tagName === 'DIV' ? 'flex' : 'block') : 'none';
+  });
+
+  // Settings
+  document.getElementById('set-name').value = currentUserData?.name || '';
+  document.getElementById('set-email').value = currentUserData?.email || '';
+
+  if (isOwner) loadUsers();
+  loadDashboard();
+  loadLogs();
+  checkServerStatus();
+}
+
+// ======= PAGES =======
+const pageTitles = {
+  dashboard: 'لوحة التحكم',
+  send: 'إرسال حملة جديدة',
+  contacts: 'جهات الاتصال',
+  logs: 'سجل الإرسال',
+  users: 'إدارة المستخدمين',
+  allcampaigns: 'كل الحملات',
+  settings: 'الإعدادات'
+};
+
+function showPage(p) {
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('page-' + p).classList.add('active');
+  document.getElementById('nav-' + p)?.classList.add('active');
+  document.getElementById('pageTitle').textContent = pageTitles[p] || p;
+  if (p === 'logs') loadLogs();
+  if (p === 'users') loadUsers();
+  if (p === 'dashboard') loadDashboard();
+  if (p === 'allcampaigns') loadAllCampaigns();
+}
+
+// ======= DASHBOARD =======
+async function loadDashboard() {
+  try {
+    const isOwner = currentUserData?.role === 'owner';
+    let query = db.collection('campaigns');
+    if (!isOwner) query = query.where('uid', '==', currentUser.uid);
+    const snap = await query.get();
+
+    let totalSent = 0, totalSuccess = 0, totalFail = 0;
+    snap.forEach(doc => {
+      const d = doc.data();
+      totalSent += d.sentCount || 0;
+      totalSuccess += d.successCount || 0;
+    });
+
+    document.getElementById('ds-sent').textContent = totalSent.toLocaleString();
+    document.getElementById('ds-campaigns').textContent = snap.size;
+    document.getElementById('ds-contacts').textContent = contacts.length;
+    document.getElementById('ds-success').textContent = totalSent ? Math.round((totalSuccess / totalSent) * 100) + '%' : '0%';
+
+    // Recent logs
+    let logsQuery = db.collection('logs').orderBy('createdAt', 'desc').limit(isOwner ? 20 : 10);
+    if (!isOwner) logsQuery = logsQuery.where('uid', '==', currentUser.uid);
+    // Simpler query for non-owners
+    const logSnap = await (isOwner
+      ? db.collection('logs').orderBy('createdAt', 'desc').limit(20).get()
+      : db.collection('logs').where('uid', '==', currentUser.uid).orderBy('createdAt', 'desc').limit(10).get()
+    );
+
+    const dashLogs = document.getElementById('dash-logs');
+    if (logSnap.empty) {
+      dashLogs.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">لا يوجد نشاط بعد</div></div>';
+      return;
+    }
+    dashLogs.innerHTML = logSnap.docs.map(d => {
+      const l = d.data();
+      return `<div class="log-item">
+        <div class="log-dot" style="background:${l.success ? 'var(--green)' : 'var(--red)'}"></div>
+        <div class="log-name">${l.name || l.phone || '—'}</div>
+        ${isOwner ? `<span class="badge badge-blue" style="font-size:10px">${l.userName || '—'}</span>` : ''}
+        <span class="badge ${l.success ? 'badge-green' : 'badge-red'}">${l.success ? '✓ نجح' : '✗ فشل'}</span>
+        <div class="log-time">${formatDate(l.createdAt)}</div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    console.error('Dashboard error', e);
+  }
+}
+
+// ======= EXCEL =======
+function loadExcel(input) {
+  if (!input.files[0]) return;
+  processExcel(input.files[0], 'send');
+}
+
+function loadExcelContacts(input) {
+  if (!input.files[0]) return;
+  processExcel(input.files[0], 'contacts');
+}
+
+function handleExcelDrop(e) {
+  e.preventDefault();
+  document.getElementById('excelZone').classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) processExcel(file, 'send');
+}
+
+function processExcel(file, target) {
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      if (data.length < 2) { showToast('الملف فارغ أو لا يحتوي بيانات', 'error'); return; }
+
+      const headers = data[0].map(h => String(h).toLowerCase().trim());
+      const phoneIdx = headers.findIndex(h => h.includes('phone') || h.includes('رقم') || h.includes('هاتف') || h.includes('جوال') || h.includes('موبايل'));
+      const nameIdx = headers.findIndex(h => h.includes('name') || h.includes('اسم'));
+      const compIdx = headers.findIndex(h => h.includes('company') || h.includes('شركة'));
+
+      if (phoneIdx === -1) { showToast('لم يتم إيجاد عمود الرقم. تأكد أن العمود اسمه Phone أو رقم', 'error'); return; }
+
+      contacts = [];
+      for (let i = 1; i < data.length; i++) {
+        const row = data[i];
+        const phone = String(row[phoneIdx] || '').replace(/\D/g, '');
+        if (phone.length >= 10) {
+          contacts.push({
+            phone: phone,
+            name: nameIdx >= 0 ? (row[nameIdx] || '') : '',
+            company: compIdx >= 0 ? (row[compIdx] || '') : ''
+          });
+        }
+      }
+
+      showToast(`✅ تم تحميل ${contacts.length} جهة اتصال`, 'success');
+      document.getElementById('ds-contacts').textContent = contacts.length;
+
+      if (target === 'send') {
+        const info = document.getElementById('contactsInfo');
+        info.style.display = 'flex';
+        info.className = 'contacts-info';
+        info.innerHTML = `📊 <strong>${contacts.length}</strong> جهة اتصال جاهزة للإرسال • من ملف: ${file.name}`;
+        document.getElementById('excelZone').innerHTML = `<div class="upload-icon">✅</div><div style="color:var(--green)">${contacts.length} جهة اتصال محملة</div><div class="upload-hint">${file.name} • اضغط لتغيير الملف</div>`;
+      }
+      if (target === 'contacts') renderContactsTable();
+    } catch (err) {
+      showToast('خطأ في قراءة الملف: ' + err.message, 'error');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function renderContactsTable() {
+  const el = document.getElementById('contactsTable');
+  if (!contacts.length) {
+    el.innerHTML = '<div class="empty"><div class="empty-icon">👥</div><div class="empty-text">ارفع ملف Excel لعرض جهات الاتصال</div></div>';
+    return;
+  }
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>#</th><th>الاسم</th><th>الرقم (مخفي جزئياً)</th><th>الشركة</th></tr></thead>
+    <tbody>${contacts.map((c, i) => `<tr>
+      <td style="color:var(--text3)">${i + 1}</td>
+      <td>${c.name || '—'}</td>
+      <td style="direction:ltr;text-align:right">${maskPhone(c.phone)}</td>
+      <td>${c.company || '—'}</td>
+    </tr>`).join('')}</tbody>
+  </table></div>
+  <p style="font-size:11px;color:var(--text3);margin-top:10px;text-align:center">⚠️ الأرقام معروضة جزئياً لحماية الخصوصية ولا تُحفظ في قاعدة البيانات</p>`;
+}
+
+function maskPhone(phone) {
+  if (phone.length <= 4) return '****';
+  return phone.substring(0, 3) + '****' + phone.slice(-3);
+}
+
+// ======= MEDIA =======
+function triggerMedia(accept) {
+  const input = document.getElementById('mediaFile');
+  input.accept = accept;
+  input.click();
+}
+
+function loadMedia(input) {
+  if (!input.files[0]) return;
+  mediaFileObj = input.files[0];
+  document.getElementById('mediaName').textContent = mediaFileObj.name;
+  document.getElementById('mediaPreview').style.display = 'flex';
+}
+
+function removeMedia() {
+  mediaFileObj = null;
+  document.getElementById('mediaPreview').style.display = 'none';
+  document.getElementById('mediaFile').value = '';
+}
+
+// ======= SEND CAMPAIGN =======
+async function startCampaign() {
+  const name = document.getElementById('campName').value.trim();
+  const msg = document.getElementById('msgText').value.trim();
+  const delay = parseInt(document.getElementById('sendDelay').value) || 3;
+
+  if (!name) { showAlert('sendErrorAlert', '⚠️ أدخل اسم الحملة'); return; }
+  if (!msg) { showAlert('sendErrorAlert', '⚠️ اكتب نص الرسالة'); return; }
+  if (!contacts.length) { showAlert('sendErrorAlert', '⚠️ ارفع ملف Excel أولاً'); return; }
+
+  const expiry = currentUserData?.expiry;
+  if (expiry && expiry !== '' && new Date(expiry) < new Date()) {
+    showAlert('sendErrorAlert', '⚠️ انتهى اشتراكك، تواصل مع المالك');
+    return;
+  }
+
+  const settings = await getSettings();
+  // Check server connection
+  try {
+    const uid = getUserId();
+    const st = await fetch(`${SERVER_URL}/status/${uid}`);
+    const sd = await st.json();
+    if (!sd.ready) {
+      showAlert('sendErrorAlert', '⚠️ واتساب غير متصل — اذهب للإعدادات وامسح QR Code');
+      return;
+    }
+  } catch(e) {
+    showAlert('sendErrorAlert', '⚠️ السيرفر مش شغال — شغّل start.bat أولاً');
+    return;
+  }
+
+  // Create campaign record
+  const campRef = await db.collection('campaigns').add({
+    uid: currentUser.uid,
+    userName: currentUserData?.name,
+    name,
+    message: msg,
+    totalCount: contacts.length,
+    sentCount: 0,
+    successCount: 0,
+    failCount: 0,
+    hasMedia: !!mediaFileObj,
+    mediaName: mediaFileObj?.name || null,
+    status: 'running',
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+
+  document.getElementById('sendBtn').disabled = true;
+  document.getElementById('sendBtn').textContent = '⏳ جاري الإرسال...';
+  document.getElementById('sendProgress').style.display = 'block';
+  hideAlert('sendErrorAlert');
+  hideAlert('sendAlert');
+
+  let i = 0, success = 0, fail = 0;
+
+  const sendNext = async () => {
+    if (i >= contacts.length) {
+      // Done
+      await campRef.update({ status: 'done', sentCount: i, successCount: success, failCount: fail });
+      await db.collection('users').doc(currentUser.uid).update({
+        sentCount: firebase.firestore.FieldValue.increment(i)
+      });
+      document.getElementById('sendBtn').disabled = false;
+      document.getElementById('sendBtn').textContent = '🚀 إرسال الحملة';
+      showAlert('sendAlert', `✅ اكتمل الإرسال! ${success} نجح، ${fail} فشل من أصل ${i}`);
+      loadDashboard();
+      return;
+    }
+
+    const contact = contacts[i];
+    const finalMsg = msg
+      .replace(/{name}/g, contact.name || '')
+      .replace(/{phone}/g, contact.phone)
+      .replace(/{company}/g, contact.company || '');
+
+    // Call WhatsApp API
+    const sent = await sendWAMessage(settings.token, settings.phoneId, contact.phone, finalMsg);
+
+    // Log (without storing full phone)
+    await db.collection('logs').add({
+      uid: currentUser.uid,
+      userName: currentUserData?.name,
+      campaignId: campRef.id,
+      campaignName: name,
+      name: contact.name || '—',
+      phone: maskPhone(contact.phone),
+      success: sent,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    if (sent) success++; else fail++;
+    i++;
+
+    const pct = Math.round((i / contacts.length) * 100);
+    document.getElementById('prog-bar').style.width = pct + '%';
+    document.getElementById('prog-pct').textContent = pct + '%';
+    document.getElementById('prog-detail').textContent = `${i} / ${contacts.length} • نجح: ${success} • فشل: ${fail}`;
+    document.getElementById('prog-label').textContent = `جاري الإرسال إلى: ${contact.name || contact.phone}`;
+
+    await campRef.update({ sentCount: i, successCount: success, failCount: fail });
+
+    setTimeout(sendNext, delay * 1000);
+  };
+
+  sendNext();
+}
+
+// Auto-detect server URL (works local and online)
+const SERVER_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? 'http://localhost:3001'
+  : window.location.origin;
+
+function getUserId() {
+  return currentUser?.uid || 'guest';
+}
+
+async function sendWAMessage(token, phoneId, phone, message) {
+  try {
+    const uid = getUserId();
+    const endpoint = mediaFileObj ? `${SERVER_URL}/send-media/${uid}` : `${SERVER_URL}/send/${uid}`;
+    let body;
+    if (mediaFileObj) {
+      const b64 = await fileToBase64(mediaFileObj);
+      body = { phone, message, mediaBase64: b64.split(',')[1], mediaType: mediaFileObj.type, mediaName: mediaFileObj.name };
+    } else {
+      body = { phone, message };
+    }
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    return data.success;
+  } catch (e) {
+    return false;
+  }
+}
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// WA Connect via QR
+let qrInterval = null;
+
+async function connectWA() {
+  const uid = getUserId();
+  document.getElementById('qrContainer').style.display = 'block';
+  document.getElementById('waConnectedInfo').style.display = 'none';
+  document.getElementById('waConnectBtn').disabled = true;
+  document.getElementById('waConnectBtn').textContent = '⏳ جاري...';
+  
+  try {
+    await fetch(`${SERVER_URL}/connect/${uid}`, { method: 'POST' });
+    pollQR();
+  } catch(e) {
+    showToast('⚠️ السيرفر مش شغال — شغّل start.bat أولاً', 'error');
+    document.getElementById('qrContainer').style.display = 'none';
+    document.getElementById('waConnectBtn').disabled = false;
+    document.getElementById('waConnectBtn').textContent = '🔗 اتصال';
+  }
+}
+
+function pollQR() {
+  const uid = getUserId();
+  clearInterval(qrInterval);
+  qrInterval = setInterval(async () => {
+    try {
+      const st = await fetch(`${SERVER_URL}/status/${uid}`);
+      const sd = await st.json();
+      if (sd.ready) { clearInterval(qrInterval); onWAConnected(); return; }
+      if (sd.qr) {
+        document.getElementById('qrImage').src = sd.qr;
+        document.getElementById('qrContainer').style.display = 'block';
+      }
+    } catch(e) {}
+  }, 2000);
+}
+
+function onWAConnected() {
+  isReady = true;
+  document.getElementById('qrContainer').style.display = 'none';
+  document.getElementById('waConnectedInfo').style.display = 'block';
+  document.getElementById('waStatusDot').className = 'wa-dot wa-connected';
+  document.getElementById('waStatusText').textContent = 'متصل ✅';
+  document.getElementById('waStatus').textContent = 'واتساب متصل ✅';
+  document.getElementById('waConnectBtn').style.display = 'none';
+  document.getElementById('waDisconnectBtn').style.display = 'inline-flex';
+  showToast('✅ واتساب متصل بنجاح!', 'success');
+}
+
+async function disconnectWA() {
+  const uid = getUserId();
+  clearInterval(qrInterval);
+  await fetch(`${SERVER_URL}/disconnect/${uid}`, { method: 'POST' }).catch(()=>{});
+  isReady = false;
+  document.getElementById('waStatusDot').className = 'wa-dot wa-disconnected';
+  document.getElementById('waStatusText').textContent = 'غير متصل';
+  document.getElementById('waStatus').textContent = 'واتساب غير متصل';
+  document.getElementById('waConnectedInfo').style.display = 'none';
+  document.getElementById('waConnectBtn').style.display = 'inline-flex';
+  document.getElementById('waConnectBtn').disabled = false;
+  document.getElementById('waConnectBtn').textContent = '🔗 اتصال';
+  document.getElementById('waDisconnectBtn').style.display = 'none';
+  showToast('تم قطع الاتصال', 'success');
+}
+
+let isReady = false;
+
+// Check server on load
+async function checkServerStatus() {
+  try {
+    const uid = getUserId();
+    const res = await fetch(`${SERVER_URL}/status/${uid}`);
+    const data = await res.json();
+    if (data.ready) onWAConnected();
+  } catch(e) {}
+}
+
+// ======= LOGS =======
+async function loadLogs() {
+  try {
+    const isOwner = currentUserData?.role === 'owner';
+    const q = isOwner
+      ? db.collection('logs').orderBy('createdAt', 'desc').limit(100)
+      : db.collection('logs').where('uid', '==', currentUser.uid).orderBy('createdAt', 'desc').limit(100);
+    const snap = await q.get();
+
+    const el = document.getElementById('logsTable');
+    if (snap.empty) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">لا يوجد سجلات بعد</div></div>';
+      return;
+    }
+
+    el.innerHTML = `<div class="table-wrap"><table>
+      <thead><tr>
+        <th>الاسم</th><th>الرقم</th>
+        ${isOwner ? '<th>المستخدم</th>' : ''}
+        <th>الحملة</th><th>الحالة</th><th>الوقت</th>
+      </tr></thead>
+      <tbody>${snap.docs.map(d => {
+      const l = d.data();
+      return `<tr>
+          <td>${l.name || '—'}</td>
+          <td style="direction:ltr;text-align:right;color:var(--text3)">${l.phone}</td>
+          ${isOwner ? `<td><span class="badge badge-blue">${l.userName || '—'}</span></td>` : ''}
+          <td style="color:var(--text3)">${l.campaignName || '—'}</td>
+          <td><span class="badge ${l.success ? 'badge-green' : 'badge-red'}">${l.success ? '✓ نجح' : '✗ فشل'}</span></td>
+          <td style="color:var(--text3);font-size:11px">${formatDate(l.createdAt)}</td>
+        </tr>`;
+    }).join('')}</tbody>
+    </table></div>`;
+  } catch (e) {
+    console.error('Logs error', e);
+    document.getElementById('logsTable').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div><div class="empty-text">خطأ في تحميل السجلات</div></div>';
+  }
+}
+
+// ======= USERS (Owner) =======
+async function loadUsers() {
+  try {
+    const snap = await db.collection('users').get();
+    const tbody = document.getElementById('usersTableBody');
+    document.getElementById('usersBadge').textContent = snap.size;
+
+    if (snap.empty) {
+      tbody.innerHTML = '<tr><td colspan="7"><div class="empty"><div class="empty-icon">👥</div><div class="empty-text">لا يوجد مستخدمون</div></div></td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = snap.docs.map(d => {
+      const u = d.data();
+      const expired = u.expiry && u.expiry !== '' && new Date(u.expiry) < new Date();
+      const isOwner = u.role === 'owner';
+      return `<tr>
+        <td><strong>${u.name || '—'}</strong></td>
+        <td style="color:var(--text3)">${u.email}</td>
+        <td><span class="badge ${isOwner ? 'badge-owner' : 'badge-blue'}">${isOwner ? '👑 مالك' : '👤 مشترك'}</span></td>
+        <td style="color:var(--text3)">${u.expiry || '∞'}</td>
+        <td><span class="badge ${expired ? 'badge-red' : 'badge-green'}">${expired ? 'منتهي' : 'نشط'}</span></td>
+        <td>${(u.sentCount || 0).toLocaleString()} / ${(u.maxMessages || 1000).toLocaleString()}</td>
+        <td>
+          ${!isOwner ? `<button class="btn btn-sm btn-outline" onclick="viewUser('${d.id}')">عرض</button>
+          <button class="btn btn-sm btn-red" onclick="deleteUser('${d.id}','${u.name}')">حذف</button>` : '<span style="color:var(--text3)">—</span>'}
+        </td>
+      </tr>`;
+    }).join('');
+  } catch (e) {
+    console.error('loadUsers', e);
+  }
+}
+
+function openAddUser() {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 30);
+  document.getElementById('nu-expiry').value = tomorrow.toISOString().split('T')[0];
+  openModal('addUserModal');
+}
+
+async function createUser() {
+  const name = document.getElementById('nu-name').value.trim();
+  const email = document.getElementById('nu-email').value.trim();
+  const pass = document.getElementById('nu-pass').value;
+  const expiry = document.getElementById('nu-expiry').value;
+  const maxMessages = parseInt(document.getElementById('nu-maxmsg').value) || 1000;
+  const notes = document.getElementById('nu-notes').value.trim();
+
+  if (!name || !email || !pass || !expiry) { showAlert('addUserError', 'أكمل جميع الحقول المطلوبة'); return; }
+  if (pass.length < 6) { showAlert('addUserError', 'كلمة المرور يجب أن تكون 6 أحرف على الأقل'); return; }
+
+  try {
+    // Create secondary app to avoid logging out current user
+    let secondaryApp;
+    try {
+      secondaryApp = firebase.app('secondary');
+    } catch {
+      secondaryApp = firebase.initializeApp(FIREBASE_CONFIG, 'secondary');
+    }
+    const secondAuth = secondaryApp.auth();
+    const userCred = await secondAuth.createUserWithEmailAndPassword(email, pass);
+    await secondAuth.signOut();
+
+    await db.collection('users').doc(userCred.user.uid).set({
+      name, email,
+      role: 'client',
+      expiry,
+      maxMessages,
+      notes,
+      sentCount: 0,
+      createdAt: new Date().toISOString(),
+      createdBy: currentUser.uid
+    });
+
+    closeModal('addUserModal');
+    showToast('✅ تم إنشاء المستخدم بنجاح', 'success');
+    loadUsers();
+    ['nu-name', 'nu-email', 'nu-pass', 'nu-notes'].forEach(id => document.getElementById(id).value = '');
+  } catch (e) {
+    let msg = 'خطأ في إنشاء المستخدم';
+    if (e.code === 'auth/email-already-in-use') msg = 'البريد الإلكتروني مستخدم بالفعل';
+    showAlert('addUserError', msg);
+  }
+}
+
+async function deleteUser(uid, name) {
+  if (!confirm(`هل تريد حذف المستخدم "${name}"؟\nسيتم حذف بياناته من قاعدة البيانات.`)) return;
+  try {
+    await db.collection('users').doc(uid).delete();
+    showToast('تم حذف المستخدم', 'success');
+    loadUsers();
+  } catch (e) {
+    showToast('خطأ في الحذف', 'error');
+  }
+}
+
+async function viewUser(uid) {
+  try {
+    const doc = await db.collection('users').doc(uid).get();
+    const u = doc.data();
+    const logsSnap = await db.collection('logs').where('uid', '==', uid).orderBy('createdAt', 'desc').limit(20).get();
+    const campsSnap = await db.collection('campaigns').where('uid', '==', uid).orderBy('createdAt', 'desc').limit(10).get();
+
+    document.getElementById('udm-title').textContent = u.name + ' — التفاصيل';
+    document.getElementById('udm-content').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+        <div style="background:rgba(0,0,0,0.2);border-radius:10px;padding:12px">
+          <div style="font-size:11px;color:var(--text3)">الرسائل المُرسلة</div>
+          <div style="font-size:22px;font-weight:800;color:var(--green)">${(u.sentCount || 0).toLocaleString()}</div>
+        </div>
+        <div style="background:rgba(0,0,0,0.2);border-radius:10px;padding:12px">
+          <div style="font-size:11px;color:var(--text3)">الحد الأقصى</div>
+          <div style="font-size:22px;font-weight:800;color:var(--text)">${(u.maxMessages || 1000).toLocaleString()}</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:4px">البريد: ${u.email}</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:4px">انتهاء الاشتراك: ${u.expiry || 'غير محدد'}</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:16px">تاريخ الإنشاء: ${u.createdAt ? new Date(u.createdAt).toLocaleDateString('ar-EG') : '—'}</div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px">آخر حملاته (${campsSnap.size})</div>
+      ${campsSnap.empty ? '<p style="color:var(--text3);font-size:12px">لا يوجد حملات</p>' :
+      campsSnap.docs.map(d => {
+        const c = d.data();
+        return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
+          <span>${c.name}</span>
+          <span style="margin-right:auto;color:var(--text3)">${c.sentCount || 0} رسالة</span>
+          <span class="badge ${c.status === 'done' ? 'badge-green' : 'badge-amber'}">${c.status === 'done' ? 'مكتملة' : 'جارية'}</span>
+        </div>`;
+      }).join('')}
+    `;
+    openModal('userDetailsModal');
+  } catch (e) {
+    showToast('خطأ في تحميل التفاصيل', 'error');
+  }
+}
+
+// ======= ALL CAMPAIGNS =======
+async function loadAllCampaigns() {
+  try {
+    const snap = await db.collection('campaigns').orderBy('createdAt', 'desc').limit(50).get();
+    const el = document.getElementById('allCampaignsTable');
+    if (snap.empty) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">لا يوجد حملات بعد</div></div>';
+      return;
+    }
+    el.innerHTML = `<div class="table-wrap"><table>
+      <thead><tr><th>اسم الحملة</th><th>المستخدم</th><th>الإجمالي</th><th>نجح</th><th>فشل</th><th>الحالة</th><th>التاريخ</th></tr></thead>
+      <tbody>${snap.docs.map(d => {
+      const c = d.data();
+      return `<tr>
+          <td><strong>${c.name}</strong></td>
+          <td><span class="badge badge-blue">${c.userName || '—'}</span></td>
+          <td>${(c.totalCount || 0).toLocaleString()}</td>
+          <td style="color:var(--green)">${(c.successCount || 0).toLocaleString()}</td>
+          <td style="color:var(--red)">${(c.failCount || 0).toLocaleString()}</td>
+          <td><span class="badge ${c.status === 'done' ? 'badge-green' : 'badge-amber'}">${c.status === 'done' ? 'مكتملة' : 'جارية'}</span></td>
+          <td style="font-size:11px;color:var(--text3)">${formatDate(c.createdAt)}</td>
+        </tr>`;
+    }).join('')}</tbody>
+    </table></div>`;
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+// ======= SETTINGS =======
+async function getSettings() {
+  try {
+    const doc = await db.collection('settings').doc(currentUser.uid).get();
+    return doc.exists ? doc.data() : {};
+  } catch { return {}; }
+}
+
+async function saveSettings() {
+  const token = document.getElementById('set-token').value.trim();
+  const phoneId = document.getElementById('set-phoneId').value.trim();
+  const delay = parseInt(document.getElementById('set-delay').value) || 3;
+  try {
+    await db.collection('settings').doc(currentUser.uid).set({ token, phoneId, delay }, { merge: true });
+    showToast('✅ تم حفظ الإعدادات', 'success');
+  } catch (e) {
+    showToast('خطأ في الحفظ', 'error');
+  }
+}
+
+async function updateProfile() {
+  const name = document.getElementById('set-name').value.trim();
+  const newPass = document.getElementById('set-newpass').value;
+  try {
+    await db.collection('users').doc(currentUser.uid).update({ name });
+    currentUserData.name = name;
+    document.getElementById('sidebarName').textContent = name;
+    document.getElementById('sidebarAvatar').textContent = name[0].toUpperCase();
+    if (newPass) {
+      await currentUser.updatePassword(newPass);
+    }
+    showToast('✅ تم تحديث الملف الشخصي', 'success');
+  } catch (e) {
+    showToast('خطأ في التحديث: ' + e.message, 'error');
+  }
+}
+
+// testWAConnection replaced by QR system
+
+async function saveSystemSettings() {
+  const sysname = document.getElementById('set-sysname').value;
+  const maxmsg = parseInt(document.getElementById('set-maxmsg').value);
+  try {
+    await db.collection('system').doc('config').set({ sysname, defaultMaxMessages: maxmsg }, { merge: true });
+    showToast('✅ تم حفظ إعدادات النظام', 'success');
+  } catch (e) {
+    showToast('خطأ', 'error');
+  }
+}
+
+// ======= UTILS =======
+function formatDate(ts) {
+  if (!ts) return '—';
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleString('ar-EG', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function showAlert(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 5000);
+}
+
+function hideAlert(id) {
+  document.getElementById(id).classList.remove('show');
+}
+
+let toastTimer;
+function showToast(msg, type = 'success') {
+  clearTimeout(toastTimer);
+  const t = document.getElementById('toast');
+  t.innerHTML = (type === 'success' ? '✅ ' : '⚠️ ') + msg;
+  t.className = 'show ' + type;
+  toastTimer = setTimeout(() => t.className = '', 3500);
+}
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  hideAlert('addUserError');
+}
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', function(e) { if (e.target === this) this.classList.remove('open'); });
+});
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
